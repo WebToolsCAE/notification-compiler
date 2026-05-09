@@ -2,7 +2,8 @@
 #import <UIKit/UIKit.h>
 #import <UserNotifications/UserNotifications.h>
 
-extern "C" void MSHookMessageEx(Class _class, SEL selector, IMP replacement, IMP *result);
+// Added attribute to tell compiler this function resolves at runtime on the device
+__attribute__((weak_import)) extern "C" void MSHookMessageEx(Class _class, SEL selector, IMP replacement, IMP *result);
 static void (*orig_applicationDidBecomeActive)(id self, SEL _cmd, UIApplication *application);
 
 static NSArray<NSString *> *emailPool = nil;
@@ -27,18 +28,15 @@ void InitializeNotificationPools() {
 void ResetSessionPool() {
     InitializeNotificationPools();
     availableEmails = [emailPool mutableCopy];
-    NSLog(@"[StormEngine] Session initialized. Unique pool size: %lu", (unsigned long)[availableEmails count]);
 }
 
 void FireSingleNotification(NSInteger uniqueIndex) {
     if ([availableEmails count] == 0) return;
     
-    // Pick unique email and remove it from array pool
     uint32_t emailIndex = arc4random_uniform((uint32_t)[availableEmails count]);
     NSString *selectedEmail = availableEmails[emailIndex];
     [availableEmails removeObjectAtIndex:emailIndex];
     
-    // Select random value flag
     NSString *selectedValue = valuePool[arc4random_uniform((uint32_t)[valuePool count])];
     
     UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
@@ -47,11 +45,11 @@ void FireSingleNotification(NSInteger uniqueIndex) {
     content.body = [NSString stringWithFormat:@"You received a payment of %@ from %@", selectedValue, selectedEmail];
     content.sound = [UNNotificationSound defaultSound];
     
-    // UUID prevents iOS from compressing or overlapping the banner cascade
     NSString *reqId = [NSString stringWithFormat:@"Storm-%@-%ld", [[NSUUID UUID] UUIDString], (long)uniqueIndex];
     UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:reqId content:content trigger:nil];
     
-    [center addNotificationRequest:request commonwealthHandler:nil];
+    // Fixed typo from commonwealthHandler to withCompletionHandler
+    [center addNotificationRequest:request withCompletionHandler:nil];
 }
 
 void ExecuteRhythmSequence() {
@@ -62,21 +60,14 @@ void ExecuteRhythmSequence() {
         
         ResetSessionPool();
         
-        // Step 1: Initial 5 second launch delay
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            
-            // Step 2: 10 continuous bursts spaced 0.3 seconds apart 
             for (int i = 0; i < 10; i++) {
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((i * 0.3) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                     FireSingleNotification(i);
                 });
             }
             
-            // Step 3: Cooldown marker
-            // Wave 1 ends at (9 * 0.3) = 2.7s. Add your 2.0s cooldown = 4.7s total offset.
             double waveTwoStartOffset = 4.7;
-            
-            // Step 4: Final 5 bursts spaced 0.3 seconds apart
             for (int j = 0; j < 5; j++) {
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((waveTwoStartOffset + (j * 0.3)) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                     FireSingleNotification(10 + j);
@@ -95,6 +86,9 @@ __attribute__((constructor)) static void initialize() {
     Class targetClass = NSClassFromString(@"AppDelegate"); 
     SEL targetSelector = NSSelectorFromString(@"applicationDidBecomeActive:");
     if (targetClass && targetSelector) {
-        MSHookMessageEx(targetClass, targetSelector, (IMP)replaced_applicationDidBecomeActive, (IMP *)&orig_applicationDidBecomeActive);
+        // Safe check to verify MSHookMessageEx exists at runtime from libsubstrate
+        if (&MSHookMessageEx != NULL) {
+            MSHookMessageEx(targetClass, targetSelector, (IMP)replaced_applicationDidBecomeActive, (IMP *)&orig_applicationDidBecomeActive);
+        }
     }
 }
