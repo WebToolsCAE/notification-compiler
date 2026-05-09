@@ -1,6 +1,6 @@
-#import <Foundation/Foundation.framework>
-#import <UIKit/UIKit.framework>
-#import <UserNotifications/UserNotifications.framework>
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#import <UserNotifications/UserNotifications.h>
 
 extern "C" void MSHookMessageEx(Class _class, SEL selector, IMP replacement, IMP *result);
 static void (*orig_applicationDidBecomeActive)(id self, SEL _cmd, UIApplication *application);
