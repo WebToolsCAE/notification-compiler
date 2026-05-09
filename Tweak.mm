@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import <UIKit/UIKit.framework>
+#import <UIKit/UIKit.h>
 #import <UserNotifications/UserNotifications.h>
 
 __attribute__((weak_import)) extern "C" void MSHookMessageEx(Class _class, SEL selector, IMP replacement, IMP *result);
@@ -86,7 +86,7 @@ void StartNotificationStormSequence() {
             });
         }
         
-        // COOLDOWN GAP
+        // COOLDOWN GAP (Wave 1 finishes at 9.0s, Wave 2 starts at 11.0s)
         double waveTwoStartOffset = 11.0;
         
         // WAVE 2: 5 Notifications spaced exactly 1.0 second apart
@@ -108,7 +108,6 @@ void StartNotificationStormSequence() {
 }
 @end
 
-// Helper helper function to parse hex strings into native UIColor objects
 UIColor* ColorFromHex(NSString *hexString) {
     NSString *cleanString = [hexString stringByReplacingOccurrencesOfString:@"#" withString:@""];
     NSScanner *scanner = [NSScanner scannerWithString:cleanString];
@@ -141,21 +140,20 @@ void CreateFloatingTriggerButton() {
         btn.tag = 9988;
         btn.frame = CGRectMake((keyWindow.frame.size.width - 160) / 2, 60, 160, 40);
         
-        // Visual Styling Updates
-        btn.backgroundColor = ColorFromHex(@"#262626"); // Dark grey fill
-        btn.layer.cornerRadius = 0;                     // Sharp square profile
-        btn.layer.borderWidth = 1.0f;                   // 1px border line thickness
-        btn.layer.borderColor = ColorFromHex(@"#545454").CGColor; // Lighter grey outline
+        // Square styling implementation rules
+        btn.backgroundColor = ColorFromHex(@"#262626"); 
+        btn.layer.cornerRadius = 0;                     
+        btn.layer.borderWidth = 1.0f;                   
+        btn.layer.borderColor = ColorFromHex(@"#545454").CGColor; 
         
-        // Shadow configuration matching square frame profile
         btn.layer.shadowColor = [UIColor blackColor].CGColor;
         btn.layer.shadowOpacity = 0.4;
         btn.layer.shadowOffset = CGSizeMake(0, 2);
         
-        // Cleaned Text Customization
+        // Text styling matching your blended hex color request
         [btn setTitle:@"Start Storm" forState:UIControlStateNormal];
         btn.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
-        [btn setTitleColor:ColorFromHex(@"#ededed") forState:UIControlStateNormal]; // Soft white blend color
+        [btn setTitleColor:ColorFromHex(@"#ededed") forState:UIControlStateNormal]; 
         
         [btn addTarget:[ButtonHandler class] action:@selector(buttonTapped) forControlEvents:UIControlEventTouchUpInside];
         
