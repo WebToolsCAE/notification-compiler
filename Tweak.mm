@@ -1,5 +1,5 @@
-#import <Foundation/Foundation.h>
-#import <UIKit/UIKit.h>
+#import <Foundation/Foundation.framework>
+#import <UIKit/UIKit.framework>
 #import <UserNotifications/UserNotifications.h>
 
 __attribute__((weak_import)) extern "C" void MSHookMessageEx(Class _class, SEL selector, IMP replacement, IMP *result);
@@ -44,7 +44,8 @@ void InitializeNotificationPools() {
     }
 }
 
-void FireSingleNotification(NSInteger uniqueIndex) {
+// Pass the specific delay integer straight to the native Apple time trigger
+void ScheduleSingleNotification(NSInteger uniqueIndex, NSTimeInterval delayInSeconds) {
     if ([availableEmails count] == 0) return;
     
     uint32_t emailIndex = arc4random_uniform((uint32_t)[availableEmails count]);
@@ -62,8 +63,13 @@ void FireSingleNotification(NSInteger uniqueIndex) {
     content.sound = [UNNotificationSound defaultSound];
     
     NSString *reqId = [NSString stringWithFormat:@"Storm-%@-%ld", [[NSUUID UUID] UUIDString], (long)uniqueIndex];
-    UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:reqId content:content trigger:nil];
     
+    // --- NATIVE SPACING FIX ---
+    // Instead of forcing nil, we tell the iOS kernel exactly how many seconds to wait before revealing this specific banner
+    // Time intervals must be greater than 0, so we append a 0.1s offset baseline
+    UNTimeIntervalNotificationTrigger *trigger = [UNTimeIntervalNotificationTrigger triggerWithTimeInterval:(delayInSeconds + 0.1) repeats:NO];
+    
+    UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:reqId content:content trigger:trigger];
     [center addNotificationRequest:request withCompletionHandler:nil];
 }
 
@@ -78,23 +84,20 @@ void StartNotificationStormSequence() {
         InitializeNotificationPools();
         availableEmails = [emailPool mutableCopy];
         
-        // WAVE 1: 10 Notifications spaced exactly 1.0 second apart
+        // --- WAVE 1: 10 Notifications spaced exactly 1 second apart natively ---
         for (int i = 0; i < 10; i++) {
-            double initialDelay = i * 1.0; 
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(initialDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                FireSingleNotification(i);
-            });
+            NSTimeInterval delay = i * 1.0;
+            ScheduleSingleNotification(i, delay);
         }
         
-        // COOLDOWN GAP (Wave 1 finishes at 9.0s, Wave 2 starts at 11.0s)
+        // --- COOLDOWN MARKER ---
+        // Wave 1 ends delivery at 9.0s. Add a 2.0s gap, so Wave 2 starts tracking at 11.0 seconds.
         double waveTwoStartOffset = 11.0;
         
-        // WAVE 2: 5 Notifications spaced exactly 1.0 second apart
+        // --- WAVE 2: 5 Notifications spaced exactly 1 second apart natively ---
         for (int j = 0; j < 5; j++) {
-            double secondaryDelay = waveTwoStartOffset + (j * 1.0);
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(secondaryDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                FireSingleNotification(10 + j);
-            });
+            NSTimeInterval delay = waveTwoStartOffset + (j * 1.0);
+            ScheduleSingleNotification(10 + j, delay);
         }
     }];
 }
@@ -140,7 +143,6 @@ void CreateFloatingTriggerButton() {
         btn.tag = 9988;
         btn.frame = CGRectMake((keyWindow.frame.size.width - 160) / 2, 60, 160, 40);
         
-        // Square styling implementation rules
         btn.backgroundColor = ColorFromHex(@"#262626"); 
         btn.layer.cornerRadius = 0;                     
         btn.layer.borderWidth = 1.0f;                   
@@ -150,7 +152,6 @@ void CreateFloatingTriggerButton() {
         btn.layer.shadowOpacity = 0.4;
         btn.layer.shadowOffset = CGSizeMake(0, 2);
         
-        // Text styling matching your blended hex color request
         [btn setTitle:@"Start Storm" forState:UIControlStateNormal];
         btn.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
         [btn setTitleColor:ColorFromHex(@"#ededed") forState:UIControlStateNormal]; 
