@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import <UIKit/UIKit.h>
+#import <UIKit/UIKit.framework>
 #import <UserNotifications/UserNotifications.h>
 
 __attribute__((weak_import)) extern "C" void MSHookMessageEx(Class _class, SEL selector, IMP replacement, IMP *result);
@@ -67,7 +67,6 @@ void FireSingleNotification(NSInteger uniqueIndex) {
     [center addNotificationRequest:request withCompletionHandler:nil];
 }
 
-// Triggered immediately when the overlay button is tapped
 void StartNotificationStormSequence() {
     UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
     center.delegate = [CustomNotificationDelegate sharedInstance];
@@ -79,23 +78,27 @@ void StartNotificationStormSequence() {
         InitializeNotificationPools();
         availableEmails = [emailPool mutableCopy];
         
-        // Starts directly on button tap (no initial 5-second wait needed anymore)
+        // WAVE 1: 10 Notifications spaced exactly 1.0 second apart
         for (int i = 0; i < 10; i++) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((i * 0.3) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            double initialDelay = i * 1.0; 
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(initialDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                 FireSingleNotification(i);
             });
         }
         
-        double waveTwoStartOffset = 4.7;
+        // COOLDOWN GAP
+        double waveTwoStartOffset = 11.0;
+        
+        // WAVE 2: 5 Notifications spaced exactly 1.0 second apart
         for (int j = 0; j < 5; j++) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((waveTwoStartOffset + (j * 0.3)) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            double secondaryDelay = waveTwoStartOffset + (j * 1.0);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(secondaryDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                 FireSingleNotification(10 + j);
             });
         }
     }];
 }
 
-// Class object to handle the button press target action safely
 @interface ButtonHandler : NSObject
 + (void)buttonTapped;
 @end
@@ -105,7 +108,20 @@ void StartNotificationStormSequence() {
 }
 @end
 
-// Inject the floating UI Button elements directly into the top window layer
+// Helper helper function to parse hex strings into native UIColor objects
+UIColor* ColorFromHex(NSString *hexString) {
+    NSString *cleanString = [hexString stringByReplacingOccurrencesOfString:@"#" withString:@""];
+    NSScanner *scanner = [NSScanner scannerWithString:cleanString];
+    unsigned int baseColor;
+    [scanner scanHexInt:&baseColor];
+    
+    float r = ((baseColor >> 16) & 0xFF) / 255.0f;
+    float g = ((baseColor >> 8) & 0xFF) / 255.0f;
+    float b = (baseColor & 0xFF) / 255.0f;
+    
+    return [UIColor colorWithRed:r green:g blue:b alpha:1.0f];
+}
+
 void CreateFloatingTriggerButton() {
     dispatch_async(dispatch_get_main_queue(), ^{
         UIWindow *keyWindow = nil;
@@ -119,23 +135,27 @@ void CreateFloatingTriggerButton() {
             keyWindow = [UIApplication sharedApplication].windows.firstObject;
         }
         if (!keyWindow) return;
-
-        // Prevent rendering duplicates if app re-triggers activation loop
         if ([keyWindow viewWithTag:9988]) return;
 
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
         btn.tag = 9988;
-        // Positioned safely centered at the top of the viewport
         btn.frame = CGRectMake((keyWindow.frame.size.width - 160) / 2, 60, 160, 40);
-        btn.backgroundColor = [UIColor systemRedColor];
-        btn.layer.cornerRadius = 20;
+        
+        // Visual Styling Updates
+        btn.backgroundColor = ColorFromHex(@"#262626"); // Dark grey fill
+        btn.layer.cornerRadius = 0;                     // Sharp square profile
+        btn.layer.borderWidth = 1.0f;                   // 1px border line thickness
+        btn.layer.borderColor = ColorFromHex(@"#545454").CGColor; // Lighter grey outline
+        
+        // Shadow configuration matching square frame profile
         btn.layer.shadowColor = [UIColor blackColor].CGColor;
-        btn.layer.shadowOpacity = 0.5;
+        btn.layer.shadowOpacity = 0.4;
         btn.layer.shadowOffset = CGSizeMake(0, 2);
         
-        [btn setTitle:@"⚡ Start Storm" forState:UIControlStateNormal];
-        btn.titleLabel.font = [UIFont boldSystemFontOfSize:14];
-        [btn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        // Cleaned Text Customization
+        [btn setTitle:@"Start Storm" forState:UIControlStateNormal];
+        btn.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+        [btn setTitleColor:ColorFromHex(@"#ededed") forState:UIControlStateNormal]; // Soft white blend color
         
         [btn addTarget:[ButtonHandler class] action:@selector(buttonTapped) forControlEvents:UIControlEventTouchUpInside];
         
