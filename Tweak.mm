@@ -57,13 +57,15 @@ void ScheduleSingleNotification(NSInteger uniqueIndex, NSTimeInterval delayInSec
     center.delegate = [CustomNotificationDelegate sharedInstance];
     
     UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
-    content.title = @"Payment Received";
+    
+    // FIXED: Passing an empty string causes iOS to use the App Name automatically
+    content.title = @""; 
+    
     content.body = [NSString stringWithFormat:@"You received a payment of %@ from %@", selectedValue, selectedEmail];
     content.sound = [UNNotificationSound defaultSound];
     
     NSString *reqId = [NSString stringWithFormat:@"Storm-%@-%ld", [[NSUUID UUID] UUIDString], (long)uniqueIndex];
     
-    // Force iOS native background daemon to schedule the exact delay pacing
     UNTimeIntervalNotificationTrigger *trigger = [UNTimeIntervalNotificationTrigger triggerWithTimeInterval:(delayInSeconds + 0.1) repeats:NO];
     
     UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:reqId content:content trigger:trigger];
@@ -81,13 +83,11 @@ void StartNotificationStormSequence() {
         InitializeNotificationPools();
         availableEmails = [emailPool mutableCopy];
         
-        // WAVE 1: 10 Notifications spaced exactly 1 second apart natively
         for (int i = 0; i < 10; i++) {
             NSTimeInterval delay = i * 1.0;
             ScheduleSingleNotification(i, delay);
         }
         
-        // WAVE 2: 5 Notifications spaced exactly 1 second apart natively after 2s cooldown
         double waveTwoStartOffset = 11.0;
         for (int j = 0; j < 5; j++) {
             NSTimeInterval delay = waveTwoStartOffset + (j * 1.0);
