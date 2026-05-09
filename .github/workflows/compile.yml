@@ -1,0 +1,20 @@
+name: Compile iOS Dylib
+on: [workflow_dispatch]
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Compile Code to Dylib
+        run: |
+          xcrun -sdk iphoneos clang++ -dynamiclib -arch arm64 -miphoneos-version-min=14.0 \
+          -framework Foundation -framework UIKit -framework UserNotifications \
+          Tweak.mm -o CustomStorm.dylib
+
+      - name: Upload Finished Dylib
+        uses: actions/upload-artifact@v4
+        with:
+          name: Compiled-Tweak
+          path: CustomStorm.dylib
