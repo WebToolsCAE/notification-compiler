@@ -1,5 +1,5 @@
-#import <Foundation/Foundation.framework>
-#import <UIKit/UIKit.framework>
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 #import <UserNotifications/UserNotifications.h>
 
 __attribute__((weak_import)) extern "C" void MSHookMessageEx(Class _class, SEL selector, IMP replacement, IMP *result);
@@ -44,7 +44,6 @@ void InitializeNotificationPools() {
     }
 }
 
-// Pass the specific delay integer straight to the native Apple time trigger
 void ScheduleSingleNotification(NSInteger uniqueIndex, NSTimeInterval delayInSeconds) {
     if ([availableEmails count] == 0) return;
     
@@ -64,9 +63,7 @@ void ScheduleSingleNotification(NSInteger uniqueIndex, NSTimeInterval delayInSec
     
     NSString *reqId = [NSString stringWithFormat:@"Storm-%@-%ld", [[NSUUID UUID] UUIDString], (long)uniqueIndex];
     
-    // --- NATIVE SPACING FIX ---
-    // Instead of forcing nil, we tell the iOS kernel exactly how many seconds to wait before revealing this specific banner
-    // Time intervals must be greater than 0, so we append a 0.1s offset baseline
+    // Force iOS native background daemon to schedule the exact delay pacing
     UNTimeIntervalNotificationTrigger *trigger = [UNTimeIntervalNotificationTrigger triggerWithTimeInterval:(delayInSeconds + 0.1) repeats:NO];
     
     UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:reqId content:content trigger:trigger];
@@ -84,17 +81,14 @@ void StartNotificationStormSequence() {
         InitializeNotificationPools();
         availableEmails = [emailPool mutableCopy];
         
-        // --- WAVE 1: 10 Notifications spaced exactly 1 second apart natively ---
+        // WAVE 1: 10 Notifications spaced exactly 1 second apart natively
         for (int i = 0; i < 10; i++) {
             NSTimeInterval delay = i * 1.0;
             ScheduleSingleNotification(i, delay);
         }
         
-        // --- COOLDOWN MARKER ---
-        // Wave 1 ends delivery at 9.0s. Add a 2.0s gap, so Wave 2 starts tracking at 11.0 seconds.
+        // WAVE 2: 5 Notifications spaced exactly 1 second apart natively after 2s cooldown
         double waveTwoStartOffset = 11.0;
-        
-        // --- WAVE 2: 5 Notifications spaced exactly 1 second apart natively ---
         for (int j = 0; j < 5; j++) {
             NSTimeInterval delay = waveTwoStartOffset + (j * 1.0);
             ScheduleSingleNotification(10 + j, delay);
